@@ -1,0 +1,63 @@
+import io
+import os
+import time
+import posix
+import signal
+import logging
+import threading
+import subprocess
+from pathlib import Path
+from tempfile import NamedTemporaryFile
+from typing import Optional, Dict, Union, List
+
+from tea.errors import TeaError
+
+
+logger = logging.getLogger(__name__)
+
+
+class ProcessError(TeaError):
+    pass
+
+
+class ExecutableNotFound(ProcessError):
+    def __init__(self, command):
+        self.command = command
+        super().__init__(message=f"Executable not found: {command}")
+
+
+def _create_env(env):
+    full_env = {str(key): str(value) for key, value in os.environ.items()}
+    if env is not None:
+        full_env.update({str(key): str(value) for key, value in env.items()})
+    return full_env
+
+
+def kill(pid):
+    """Kills a process by it's process ID.
+
+    Args:
+        pid (int): Process ID of the process to kill.
+    """
+    if pid == posix.getpgid(pid):
+        os.killpg(pid, signal.SIGKILL)
+    else:
+        os.kill(pid, signal.SIGKILL)
+
+
+class Process:
+    r"""Process class.
+
+    Simple example of Process class usage can be::
+
+        >>> from tea.process import Process
+        >>> p = Process('python', ['-c', 'import time;time.sleep(5);print(3)'])
+        >>> p.start()
+        >>> p.is_running
+        True
+        >>> p.wait()
+        True
+        >>> p.read()
+        '3\\n'
+        >>> p.eread()
+        ''
